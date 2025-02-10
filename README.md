@@ -8,7 +8,7 @@ To install the development version from GitHub:
 
 ```r
 # install.packages("devtools")  # Uncomment if devtools is not installed
-devtools::install_github("your-username/siteBayes")
+devtools::install_github("joonho112/siteBayes")
 ```
 
 ```
