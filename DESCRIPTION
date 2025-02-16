@@ -22,7 +22,8 @@ Imports:
     ggplot2,
     dplyr, 
     sn, 
-    LaplacesDemon
+    LaplacesDemon, 
+    nleqslv
 Suggests:
     rstan,  
     testthat (>= 3.0.0),

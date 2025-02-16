@@ -2,3 +2,10 @@
 
 export(gen_priorG)
 export(gen_priorG2)
+export(sim_sitesize_withinvar)
+importFrom(dplyr,tibble)
+importFrom(nleqslv,nleqslv)
+importFrom(stats,dgamma)
+importFrom(stats,integrate)
+importFrom(stats,pgamma)
+importFrom(stats,rgamma)
