@@ -2,6 +2,8 @@
 
 export(gen_priorG)
 export(gen_priorG2)
+export(sim_multisite_data)
+export(sim_observed_effects)
 export(sim_sitesize_withinvar)
 importFrom(dplyr,tibble)
 importFrom(nleqslv,nleqslv)
