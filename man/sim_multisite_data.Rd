@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_multisite_data.R
 \name{sim_multisite_data}
 \alias{sim_multisite_data}
-\title{Simulate a complete multi-site dataset (no final n_j), with optional rank correlation}
+\title{Simulate a multi-site dataset with possible rank correlation between tau_j and se2_j}
 \usage{
 sim_multisite_data(
   true_dist = "Gaussian",
@@ -33,11 +33,11 @@ sim_multisite_data(
 }
 \arguments{
 \item{true_dist}{A character string specifying the type of distribution to use.
-Options are "Gaussian", "T", "Skew", "ALD", or "Mixture".}
+Options are \code{"Gaussian"}, \code{"T"}, \code{"Skew"}, \code{"ALD"}, or \code{"Mixture"}.}
 
 \item{J}{A positive integer indicating the number of sites (default: 50). If \code{formula}
-and \code{data} are provided, \code{J} should match \code{nrow(data)} or can be
-left as default for consistency check.}
+and \code{data} are provided, then \code{J} must match \code{nrow(data)}
+(or be explicitly set to that).}
 
 \item{sigma_tau}{A positive number to scale the generated treatment effects (default: 0.25).}
 
@@ -45,15 +45,15 @@ left as default for consistency check.}
 
 \item{variance}{A positive number specifying the baseline variance for the distribution (default: 1).}
 
-\item{nu}{Degrees of freedom for the T distribution. Must be provided if \code{true_dist} is "T".}
+\item{nu}{Degrees of freedom for the T distribution. Must be provided if \code{true_dist = "T"}.}
 
-\item{slant}{A numeric value for the skew parameter in the Skewed Normal distribution.
-Must be provided if \code{true_dist} is "Skew".}
+\item{slant}{A numeric value for the skew parameter in the Skew Normal distribution.
+Must be provided if \code{true_dist = "Skew"}.}
 
-\item{rho}{A numeric value for the parameter in the Asymmetric Laplace distribution.
-Must be provided if \code{true_dist} is "ALD".}
+\item{rho}{A numeric value for the parameter in the Asymmetric Laplace distribution (ALD).
+Must be provided if \code{true_dist = "ALD"}.}
 
-\item{delta}{A numeric value for the Mixture distribution.}
+\item{delta}{A numeric value for the Mixture distribution (must be provided if \code{true_dist = "Mixture"}).}
 
 \item{eps}{A numeric value (typically between 0 and 1) for the Mixture distribution.}
 
@@ -64,8 +64,8 @@ to form the design matrix. For example, \code{~ X1 + X2} or \code{~ 0 + X1 + X2}
 If provided, you must also supply \code{beta} and \code{data}.}
 
 \item{beta}{A numeric vector of regression coefficients corresponding to the columns of
-\code{model.matrix(formula, data)}. If \code{formula} is provided, \code{beta} must
-have length equal to \code{ncol(model.matrix(...))}.}
+\code{model.matrix(formula, data)}. If \code{formula} is provided,
+\code{beta} must have length equal to \code{ncol(model.matrix(...))}.}
 
 \item{data}{An optional data frame containing site-level covariates to be used in \code{formula}.
 Must have \code{nrow(data) == J} if provided.}
@@ -96,49 +96,107 @@ correlation injection (default 20000).}
 \item{tol}{Numeric tolerance for stopping early if the current correlation is
 within \code{tol} of \code{rank_corr} (default 0.01).}
 
-\item{set_seed}{Logical (default \code{FALSE}). If \code{TRUE}, we do \code{set.seed(123)}
-at the start. If \code{FALSE}, no seed is set.}
+\item{set_seed}{Logical (default \code{FALSE}). If \code{TRUE}, the function begins by
+calling \code{set.seed(123)}, thus making the entire pipeline reproducible.}
 }
 \value{
-A tibble with columns:
-\describe{
-\item{\code{tau_j}}{The true site effects.}
-\item{\code{se2_j}}{The final within-site variances.}
-\item{\code{tau_j_hat}}{Observed site effects \(\sim N(\tau_j, se2_j)\).}
-\item{\code{corr_est}}{Spearman rank correlation between \code{tau_j} and \code{se2_j}.}
-}
+A \strong{tibble} with \code{J} rows, containing site index, (optional) covariates,
+the true effects \code{tau_j}, the sampling variance \code{se2_j}, the observed
+\code{tau_j_hat}, and \code{corr_est}.
 }
 \description{
-This function does the following:
+This function:
 \enumerate{
-\item Calls \code{\link{gen_priorG2}} to generate \eqn{\tau_j} (true effects).
-\item Calls \code{\link{sim_sitesize_withinvar}} to generate \eqn{\text{se2}_j}.
-(Internally also generates \eqn{n_j}, but that is not included in the final output.)
-\item Calls \code{\link{sim_observed_effects}} to optionally reorder \eqn{\text{se2}_j}
-for partial Spearman correlation \eqn{\rho=\text{rank_corr}}, then simulates
-\(\hat{\tau}_j \sim N(\tau_j, se2_j)\).
+\item Calls \code{\link{gen_priorG2}} to generate \code{J} site-level "true" effects (including
+\code{site_index} and possibly covariates).
+\item Calls \code{\link{sim_sitesize_withinvar}} to generate \code{se2_j} for each site.
+\item Calls \code{\link{sim_observed_effects}}, which \emph{may} reorder \code{se2_j}
+internally to achieve the target Spearman rank correlation with \code{tau_j}.
+The function then merges these results back into the final data frame, leaving
+\code{tau_j} and covariates in their original row order.
 }
 }
 \details{
-The user can specify \code{set_seed=TRUE} to do \code{set.seed(123)} for reproducible results.
-By default, \code{set_seed=FALSE} means no seed is set. The final returned tibble has columns
-\code{tau_j, se2_j, tau_j_hat, corr_est} in that order, omitting any site size column.
+The returned data frame has columns:
+\itemize{
+\item \strong{\code{site_index}} (unique ID for each site).
+\item \emph{covariates}, if a formula/data were used in \code{\link{gen_priorG2}}.
+\item \strong{\code{tau_j}}, the true site effect from \code{gen_priorG2}.
+\item \strong{\code{se2_j}}, the (possibly permuted) sampling variance.
+\item \strong{\code{tau_j_hat}}, the observed site effect, drawn from \(\mathrm{N}(\tau_j, se2_j)\).
+\item \strong{\code{corr_est}}, the final Spearman rank correlation between \code{tau_j}
+and \code{se2_j}.
+}
+
+\subsection{Reordering of \eqn{se_j^2} for partial correlation}{
+If \code{precision_dependence = TRUE}, \code{\link{sim_observed_effects}} reassigns the
+\(\mathrm{se2}_j\) values among the sites (in an internal permutation) to achieve the
+specified \code{rank_corr} with \(\tau_j\).  \strong{However,} we do \emph{not} reorder
+\(\tau_j\) or any covariates. That means, effectively, site \(i\) keeps its row and
+\(\tau_j\link{i}\) but might receive a different \(\mathrm{se2}_j\). This allows us to produce
+a rank correlation between the unaltered \(\tau_j\) and a re-labeled vector of \(\mathrm{se2}_j\),
+while leaving covariates matched to the same row index.
+}
 }
 \examples{
 \dontrun{
-# Example:
-df_sim <- sim_multisite_data(
-  # For gen_priorG2:
-  true_dist = "Gaussian", J = 10, variance = 1,
-  # For sim_sitesize_withinvar:
-  nj_mean = 20, cv = 0.5,
-  # partial correlation ~ 0.4
-  precision_dependence = TRUE, rank_corr = 0.4,
-  set_seed=TRUE
+##################################################
+# Example 1: No covariates, partial correlation
+##################################################
+df_no_cov <- sim_multisite_data(
+  true_dist  = "Gaussian",
+  J          = 10,
+  sigma_tau  = 0.25,
+  variance   = 1,
+  # site size generator:
+  nj_mean    = 20,
+  cv         = 0.3,
+  # enforce correlation ~ 0.4
+  precision_dependence = TRUE,
+  rank_corr  = 0.4,
+  set_seed   = TRUE
 )
-df_sim
+head(df_no_cov)
 
-cor(df_sim$tau_j, df_sim$se2_j, method="spearman") # near 0.4
+cor(df_no_cov$tau_j, df_no_cov$se2_j, method="spearman")  # near 0.4
+
+##################################################
+# Example 2: Covariates, binomial random X1,X2,X3
+##################################################
+J <- 100
+p1 <- 0.5
+p2 <- 0.3
+p3 <- 0.7
+
+X1 <- rbinom(J, size=1, prob=p1)
+X2 <- rbinom(J, size=1, prob=p2)
+X3 <- rbinom(J, size=1, prob=p3)
+
+site_data <- data.frame(X1 = X1, X2 = X2, X3 = X3)
+
+# formula => ~ X1 + X2 + X3 includes an intercept => total 4 columns
+beta_vec <- c(2, 1.5, -1, 0.5)
+
+df_with_cov <- sim_multisite_data(
+  true_dist = "Gaussian",
+  J         = J,
+  sigma_tau = 0.25,
+  variance  = 1,
+  formula   = ~ X1 + X2 + X3,
+  beta      = beta_vec,
+  data      = site_data,
+
+  nj_mean   = 20,
+  cv        = 0.5,
+
+  precision_dependence = TRUE,
+  rank_corr = 0.3,
+
+  set_seed = TRUE
+)
+head(df_with_cov)
+
+cor(df_with_cov$tau_j, df_with_cov$se2_j, method="spearman")  # near 0.3
 }
 
 }

@@ -19,15 +19,31 @@ LazyData: false
 Depends: R (>= 4.0.0)
 Imports:
     bayesplot,
+    dplyr,
     ggplot2,
-    dplyr, 
-    sn, 
-    LaplacesDemon, 
-    nleqslv
+    LaplacesDemon,
+    methods,
+    nleqslv,
+    Rcpp (>= 0.12.0),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.18.1),
+    rstantools (>= 2.4.0),
+    sn
 Suggests:
-    rstan,  
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown
+    rmarkdown, 
+    rstantools, 
+    RcppParallel, 
+    StanHeaders
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
+Biarch: true
+LinkingTo: 
+    BH (>= 1.66.0),
+    Rcpp (>= 0.12.0),
+    RcppEigen (>= 0.3.3.3.0),
+    RcppParallel (>= 5.0.1),
+    rstan (>= 2.18.1),
+    StanHeaders (>= 2.18.0)
+SystemRequirements: GNU make
