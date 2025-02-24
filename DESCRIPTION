@@ -9,13 +9,13 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: siteBayes provides Bayesian methods for estimating and analyzing 
-    site-specific treatment effects in multisite trials. The package includes 
-    flexible semiparametric modeling and alternative posterior summary methods 
+Description: siteBayes provides Bayesian methods for estimating and analyzing
+    site-specific treatment effects in multisite trials. The package includes
+    flexible semiparametric modeling and alternative posterior summary methods
     to improve the estimation and ranking of treatment effects across sites.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: false   
+LazyData: false
 Depends: R (>= 4.0.0)
 Imports:
     bayesplot,
@@ -27,19 +27,17 @@ Imports:
     Rcpp (>= 0.12.0),
     RcppParallel (>= 5.0.1),
     rstan (>= 2.18.1),
-    rstantools (>= 2.4.0),
     sn
 Suggests:
     testthat (>= 3.0.0),
     knitr,
-    rmarkdown, 
-    rstantools, 
-    RcppParallel, 
+    rmarkdown,
+    RcppParallel,
     StanHeaders
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
 Biarch: true
-LinkingTo: 
+LinkingTo:
     BH (>= 1.66.0),
     Rcpp (>= 0.12.0),
     RcppEigen (>= 0.3.3.3.0),

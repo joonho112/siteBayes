@@ -30,18 +30,18 @@ Default is \code{"tau_j_hat"}.}
 
 \item{covariates}{Character vector of covariate column names (or \code{NULL} if none).}
 
-\item{prior_hypermean}{Optional prior object for \(\mu\). If \code{NULL} and
-\code{auto_prior=TRUE}, will be set automatically.}
+\item{prior_hypermean}{Optional prior object for the hyper-mean \(\mu\).
+If \code{NULL} and \code{auto_prior=TRUE}, will be set automatically.}
 
-\item{prior_hypersd}{Optional prior object for \(\tau\). If \code{NULL} and
-\code{auto_prior=TRUE}, will be set automatically.}
+\item{prior_hypersd}{Optional prior object for the hyper-SD \(\tau\).
+If \code{NULL} and \code{auto_prior=TRUE}, will be set automatically.}
 
-\item{prior_beta}{Optional prior object for \(\beta\). If \code{NULL} and
-\code{auto_prior=TRUE}, will be set automatically.}
+\item{prior_beta}{Optional prior object for covariate effects \(\beta\).
+If \code{NULL} and \code{auto_prior=TRUE}, will be set automatically.}
 
 \item{auto_prior}{Logical. If \code{TRUE} (default), any \code{NULL} priors
 are chosen automatically using \code{\link{auto_prior_rubin_normal}} logic.
-If \code{FALSE}, \code{NULL} priors revert to simple defaults (e.g.,
+If \code{FALSE}, \code{NULL} priors revert to simpler defaults (e.g.,
 \code{normal_prior(0,10)}, etc.).}
 
 \item{iter}{Number of MCMC iterations per chain. Default 2000.}
@@ -56,12 +56,14 @@ If \code{FALSE}, \code{NULL} priors revert to simple defaults (e.g.,
 A \code{stanfit} object (from the \pkg{rstan} package), containing the posterior draws.
 }
 \description{
-This is a high-level wrapper that:
+This function:
 \enumerate{
 \item Interprets the data frame (\code{df}) columns for site-level effects and SEs.
 \item Optionally sets priors automatically if \code{auto_prior=TRUE}.
 \item Builds a Stan-ready data list using \code{\link{build_standata_rubin_normal}}.
-\item Calls \code{rstan::sampling} on the compiled \code{rubin_normal.stan} model.
+\item Calls \code{\link{compile_rubin_normal_mod}} internally to compile the
+\code{rubin_normal.stan} model if not already compiled.
+\item Invokes \code{rstan::sampling} on that compiled model.
 \item Returns the resulting \code{stanfit} object.
 }
 }
@@ -71,6 +73,10 @@ set to \code{NULL}, meaning it will automatically choose data-dependent priors
 (baggr-style). If you wish to override any of them (\code{prior_hypermean},
 \code{prior_hypersd}, \code{prior_beta}), supply a user-defined prior object
 (e.g. \code{normal_prior(0,10)}) for that specific parameter.
+
+Internally, this function calls \code{\link{compile_rubin_normal_mod}} to compile
+(or retrieve) the Stan model \code{rubin_normal.stan}. Once compiled, it caches
+the resulting model object so that subsequent calls do not re-compile.
 }
 \examples{
 \dontrun{
@@ -107,5 +113,8 @@ fit_simple <- fit_rubin_normal(
   covariates  = "X1",
   auto_prior  = FALSE
 )
+
+# Inspect results
+print(fit_auto, pars=c("tau","sigma_tau"), probs=c(0.025,0.5,0.975))
 }
 }

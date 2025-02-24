@@ -1,11 +1,13 @@
 #' Fit the Rubin Normal partial pooling model via Stan
 #'
-#' This is a high-level wrapper that:
+#' This function:
 #' \enumerate{
 #'   \item Interprets the data frame (\code{df}) columns for site-level effects and SEs.
 #'   \item Optionally sets priors automatically if \code{auto_prior=TRUE}.
 #'   \item Builds a Stan-ready data list using \code{\link{build_standata_rubin_normal}}.
-#'   \item Calls \code{rstan::sampling} on the compiled \code{rubin_normal.stan} model.
+#'   \item Calls \code{\link{compile_rubin_normal_mod}} internally to compile the
+#'         \code{rubin_normal.stan} model if not already compiled.
+#'   \item Invokes \code{rstan::sampling} on that compiled model.
 #'   \item Returns the resulting \code{stanfit} object.
 #' }
 #'
@@ -21,20 +23,25 @@
 #'   Default is \code{"tau_j_hat"}.
 #' @param se2_col Name of the column with squared standard errors. Default is \code{"se2_hat"}.
 #' @param covariates Character vector of covariate column names (or \code{NULL} if none).
-#' @param prior_hypermean Optional prior object for \(\mu\). If \code{NULL} and
-#'   \code{auto_prior=TRUE}, will be set automatically.
-#' @param prior_hypersd Optional prior object for \(\tau\). If \code{NULL} and
-#'   \code{auto_prior=TRUE}, will be set automatically.
-#' @param prior_beta Optional prior object for \(\beta\). If \code{NULL} and
-#'   \code{auto_prior=TRUE}, will be set automatically.
+#' @param prior_hypermean Optional prior object for the hyper-mean \(\mu\).
+#'   If \code{NULL} and \code{auto_prior=TRUE}, will be set automatically.
+#' @param prior_hypersd Optional prior object for the hyper-SD \(\tau\).
+#'   If \code{NULL} and \code{auto_prior=TRUE}, will be set automatically.
+#' @param prior_beta Optional prior object for covariate effects \(\beta\).
+#'   If \code{NULL} and \code{auto_prior=TRUE}, will be set automatically.
 #' @param auto_prior Logical. If \code{TRUE} (default), any \code{NULL} priors
 #'   are chosen automatically using \code{\link{auto_prior_rubin_normal}} logic.
-#'   If \code{FALSE}, \code{NULL} priors revert to simple defaults (e.g.,
+#'   If \code{FALSE}, \code{NULL} priors revert to simpler defaults (e.g.,
 #'   \code{normal_prior(0,10)}, etc.).
 #' @param iter Number of MCMC iterations per chain. Default 2000.
 #' @param chains Number of MCMC chains. Default 4.
 #' @param cores Number of cores for parallel MCMC. Default 2.
 #' @param ... Additional arguments passed on to \code{rstan::sampling}.
+#'
+#' @details
+#' Internally, this function calls \code{\link{compile_rubin_normal_mod}} to compile
+#' (or retrieve) the Stan model \code{rubin_normal.stan}. Once compiled, it caches
+#' the resulting model object so that subsequent calls do not re-compile.
 #'
 #' @return A \code{stanfit} object (from the \pkg{rstan} package), containing the posterior draws.
 #'
@@ -73,6 +80,9 @@
 #'   covariates  = "X1",
 #'   auto_prior  = FALSE
 #' )
+#'
+#' # Inspect results
+#' print(fit_auto, pars=c("tau","sigma_tau"), probs=c(0.025,0.5,0.975))
 #' }
 #' @export
 fit_rubin_normal <- function(
@@ -89,7 +99,7 @@ fit_rubin_normal <- function(
     cores           = 2,
     ...
 ) {
-  # 1) Build the Stan data list (using build_standata_rubin_normal)
+  # 1) Build the Stan data list
   standata <- build_standata_rubin_normal(
     df               = df,
     tau_hat_col      = tau_hat_col,
@@ -101,10 +111,12 @@ fit_rubin_normal <- function(
     auto_prior       = auto_prior
   )
 
-  # 2) Fit the model with rstan::sampling
-  #    (Assuming rubin_normal.stan is pre-compiled and stored as stanmodels$rubin_normal)
+  # 2) Compile or retrieve the rubin_normal.stan model
+  mod <- compile_rubin_normal_mod()
+
+  # 3) Run MCMC
   fit <- rstan::sampling(
-    object  = stanmodels$rubin_normal,  # or however your compiled model is exposed
+    object  = mod,
     data    = standata,
     iter    = iter,
     chains  = chains,
@@ -112,6 +124,5 @@ fit_rubin_normal <- function(
     ...
   )
 
-  # 3) Return the stanfit object
   return(fit)
 }
