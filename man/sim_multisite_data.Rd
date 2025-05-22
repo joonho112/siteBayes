@@ -2,7 +2,7 @@
 % Please edit documentation in R/sim_multisite_data.R
 \name{sim_multisite_data}
 \alias{sim_multisite_data}
-\title{Simulate a multi-site dataset with possible rank correlation between tau_j and se2_j}
+\title{Simulate a multi-site dataset, optionally with correlation between tau_j and se2_j}
 \usage{
 sim_multisite_data(
   true_dist = "Gaussian",
@@ -25,7 +25,8 @@ sim_multisite_data(
   p = 0.5,
   R2 = 0,
   precision_dependence = FALSE,
-  rank_corr = 0.5,
+  rank_corr = NULL,
+  pearson_corr = NULL,
   max_iter = 20000,
   tol = 0.01,
   set_seed = FALSE
@@ -81,20 +82,23 @@ Must have \code{nrow(data) == J} if provided.}
 \item{R2}{Numeric in [0,1). Proportion of variance explained by level-1 covariates
 (defaults to 0.0).}
 
-\item{precision_dependence}{Logical indicating whether to enforce a partial correlation
-(default \code{FALSE}). If \code{FALSE}, we random-shuffle \code{se2_j} to break
-any existing correlation (near-zero result).
-If \code{TRUE}, we reorder \code{se2_j} to achieve \code{rank_corr}.}
+\item{precision_dependence}{Logical (default \code{FALSE}). If \code{TRUE}, will attempt
+to induce correlation between \(\tau_j\) and \(\mathrm{se2}_j\). The type of correlation
+depends on whether \code{rank_corr} or \code{pearson_corr} is specified (see below).}
 
-\item{rank_corr}{Numeric in \eqn{[-1,1]}, the target Spearman rank correlation to achieve
-between \eqn{\tau_j} and \eqn{\text{se2}_j} (default 0.50). Only used if
-\code{precision_dependence = TRUE}.}
+\item{rank_corr}{Numeric in \link{-1,1}, optional. If provided (and \code{precision_dependence=TRUE}),
+we enforce a \emph{Spearman} correlation target using \code{\link{sim_observed_effects}}
+(hill-climbing approach).}
 
-\item{max_iter}{Integer. Maximum number of swap attempts for the iterative
-correlation injection (default 20000).}
+\item{pearson_corr}{Numeric in \link{-1,1}, optional. If provided (and \code{precision_dependence=TRUE}),
+we enforce a \emph{Pearson} correlation target using \code{\link{sim_observed_effects_copula}}
+(Gaussian copula approach).}
 
-\item{tol}{Numeric tolerance for stopping early if the current correlation is
-within \code{tol} of \code{rank_corr} (default 0.01).}
+\item{max_iter}{Integer. Maximum number of swap attempts for the hill-climbing approach
+(only relevant if \code{rank_corr} is used).}
+
+\item{tol}{Numeric tolerance for stopping early if the current Spearman correlation is
+within \code{tol} of \code{rank_corr} (only relevant if \code{rank_corr} is used).}
 
 \item{set_seed}{Logical (default \code{FALSE}). If \code{TRUE}, the function begins by
 calling \code{set.seed(123)}, thus making the entire pipeline reproducible.}
@@ -110,9 +114,9 @@ This function:
 \item Calls \code{\link{gen_priorG2}} to generate \code{J} site-level "true" effects (including
 \code{site_index} and possibly covariates).
 \item Calls \code{\link{sim_sitesize_withinvar}} to generate \code{se2_j} for each site.
-\item Calls \code{\link{sim_observed_effects}}, which \emph{may} reorder \code{se2_j}
-internally to achieve the target Spearman rank correlation with \code{tau_j}.
-The function then merges these results back into the final data frame, leaving
+\item Depending on user input, calls either \code{\link{sim_observed_effects}} (for Spearman rank correlation)
+or \code{\link{sim_observed_effects_copula}} (for Pearson correlation) to potentially reorder \code{se2_j}.
+\item The function merges these results back into the final data frame, leaving
 \code{tau_j} and covariates in their original row order.
 }
 }
@@ -124,79 +128,42 @@ The returned data frame has columns:
 \item \strong{\code{tau_j}}, the true site effect from \code{gen_priorG2}.
 \item \strong{\code{se2_j}}, the (possibly permuted) sampling variance.
 \item \strong{\code{tau_j_hat}}, the observed site effect, drawn from \(\mathrm{N}(\tau_j, se2_j)\).
-\item \strong{\code{corr_est}}, the final Spearman rank correlation between \code{tau_j}
-and \code{se2_j}.
+\item \strong{\code{corr_est}}, the final correlation estimate (Spearman or Pearson) between \code{tau_j}
+and \code{se2_j}, depending on which method was used.
 }
 
-\subsection{Reordering of \eqn{se_j^2} for partial correlation}{
-If \code{precision_dependence = TRUE}, \code{\link{sim_observed_effects}} reassigns the
-\(\mathrm{se2}_j\) values among the sites (in an internal permutation) to achieve the
-specified \code{rank_corr} with \(\tau_j\).  \strong{However,} we do \emph{not} reorder
-\(\tau_j\) or any covariates. That means, effectively, site \(i\) keeps its row and
-\(\tau_j\link{i}\) but might receive a different \(\mathrm{se2}_j\). This allows us to produce
-a rank correlation between the unaltered \(\tau_j\) and a re-labeled vector of \(\mathrm{se2}_j\),
-while leaving covariates matched to the same row index.
+\subsection{Choosing correlation type}{
+\itemize{
+\item If \code{precision_dependence=FALSE}, no correlation is enforced (we do a random shuffle
+so it's near zero).
+\item If \code{precision_dependence=TRUE} and \code{rank_corr} is specified (not \code{NULL}),
+we use \code{sim_observed_effects} to achieve a Spearman correlation (hill climbing).
+\item If \code{precision_dependence=TRUE} and \code{pearson_corr} is specified (not \code{NULL}),
+we use \code{sim_observed_effects_copula} to achieve a Pearson correlation (Gaussian copula).
+\item If both are specified or neither is specified, we throw an error or interpret it as zero
+correlation. You can customize this logic as you prefer.
+}
 }
 }
 \examples{
 \dontrun{
-##################################################
-# Example 1: No covariates, partial correlation
-##################################################
-df_no_cov <- sim_multisite_data(
-  true_dist  = "Gaussian",
-  J          = 10,
-  sigma_tau  = 0.25,
-  variance   = 1,
-  # site size generator:
-  nj_mean    = 20,
-  cv         = 0.3,
-  # enforce correlation ~ 0.4
+# Example 1: rank_corr => Spearman correlation ~ 0.4
+df_sp <- sim_multisite_data(
+  J = 20,
   precision_dependence = TRUE,
-  rank_corr  = 0.4,
-  set_seed   = TRUE
-)
-head(df_no_cov)
-
-cor(df_no_cov$tau_j, df_no_cov$se2_j, method="spearman")  # near 0.4
-
-##################################################
-# Example 2: Covariates, binomial random X1,X2,X3
-##################################################
-J <- 100
-p1 <- 0.5
-p2 <- 0.3
-p3 <- 0.7
-
-X1 <- rbinom(J, size=1, prob=p1)
-X2 <- rbinom(J, size=1, prob=p2)
-X3 <- rbinom(J, size=1, prob=p3)
-
-site_data <- data.frame(X1 = X1, X2 = X2, X3 = X3)
-
-# formula => ~ X1 + X2 + X3 includes an intercept => total 4 columns
-beta_vec <- c(2, 1.5, -1, 0.5)
-
-df_with_cov <- sim_multisite_data(
-  true_dist = "Gaussian",
-  J         = J,
-  sigma_tau = 0.25,
-  variance  = 1,
-  formula   = ~ X1 + X2 + X3,
-  beta      = beta_vec,
-  data      = site_data,
-
-  nj_mean   = 20,
-  cv        = 0.5,
-
-  precision_dependence = TRUE,
-  rank_corr = 0.3,
-
+  rank_corr = 0.4,
   set_seed = TRUE
 )
-head(df_with_cov)
+cor(df_sp$tau_j, df_sp$se2_j, method="spearman") # ~0.4
 
-cor(df_with_cov$tau_j, df_with_cov$se2_j, method="spearman")  # near 0.3
+# Example 2: pearson_corr => Pearson correlation ~ 0.5
+df_pe <- sim_multisite_data(
+  J = 20,
+  precision_dependence = TRUE,
+  pearson_corr = 0.5,
+  set_seed = TRUE
+)
+cor(df_pe$tau_j, df_pe$se2_j) # ~0.5
 }
 
 }
